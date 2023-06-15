@@ -5,14 +5,14 @@
 
 typedef struct Code
 {
-    int dec;
-    int size;
+    int64_t dec;
+    int8_t size;
 } Code;
 
 typedef struct Item
 {
     unsigned char ch;
-    unsigned int freq;
+    unsigned long freq;
     Code code;
     struct Item *left;
     struct Item *right;
@@ -133,16 +133,18 @@ int pop(Tree *pTree, Item *resItem)
     return 0;
 }
 
-int encode(Item *pItem, int dec, int size)
+int encode(Item *pItem, int64_t dec, int8_t size)
 {
     if (pItem == NULL)
         return 1;
-    if (size < 0 || size > sizeof(int) * 8)
+    if (size < 0 || size > sizeof(dec) * 8)
         return 3;
     pItem->code.dec = dec;
     pItem->code.size = size;
-    encode(pItem->left, dec << 1, size + 1);
-    encode(pItem->right, (dec << 1) + 1, size + 1);
+    if (encode(pItem->left, dec << 1, 1 + size))
+        return 4;
+    if (encode(pItem->right, (dec << 1) + 1, 1 + size))
+        return 4;
     return 0;
 }
 
@@ -155,13 +157,14 @@ int huffman(Tree *pTree)
     while ((*pTree)->left != NULL || (*pTree)->right != NULL)
     {
         Item item;
-        initItem(&item, '\0');
+        if (initItem(&item, '\0'))
+            return 3;
         item.left = (Item*)malloc(sizeof(Item));
         item.right = (Item*)malloc(sizeof(Item));
         if (item.left == NULL || item.right == NULL)
-            return 3;
-        if (pop(pTree, item.left))
             return 4;
+        if (pop(pTree, item.left))
+            return 5;
         if (pop(pTree, item.right))
         {
             free(item.right);
@@ -169,7 +172,7 @@ int huffman(Tree *pTree)
         } else
             item.freq = item.left->freq + item.right->freq;
         if (push(pTree, item))
-            return 5;
+            return 6;
     }
     return 0;
 }
@@ -182,8 +185,10 @@ int fillCodes(Code *codes, Item *pItem)
         return  2;
     if (pItem->left == NULL && pItem->right == NULL)
         codes[pItem->ch] = pItem->code;
-    fillCodes(codes, pItem->left);
-    fillCodes(codes, pItem->right);
+    if (fillCodes(codes, pItem->left))
+        return 3;
+    if (fillCodes(codes, pItem->right))
+        return 3;
     return 0;
 }
 
@@ -206,7 +211,7 @@ int readTable(Item *ascii, char *fileName)
     for (i = 0; i < n; i++)
     {
         unsigned char ch;
-        unsigned int freq;
+        unsigned long freq;
         if (fread(&ch, sizeof(ch), 1, file) != 1)
             return 4;
         if (fread(&freq, sizeof(freq), 1, file) != 1)
@@ -235,7 +240,8 @@ int decode(Tree tree, char *fileInput, char *fileOutput)
     short n = 0;
     if (fread(&n, sizeof(n), 1, input) != 1)
         return 5;
-    if (fseek(input, n * (sizeof(char) + sizeof(int)), SEEK_CUR))
+    Item none;
+    if (fseek(input, n * (sizeof(none.ch) + sizeof(none.freq)), SEEK_CUR))
         return 6;
     FILE *output = fopen(fileOutput, "wb");
     if (output == NULL)
