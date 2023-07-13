@@ -141,10 +141,8 @@ int encode(Item *pItem, int64_t dec, int8_t size)
         return 3;
     pItem->code.dec = dec;
     pItem->code.size = size;
-    if (encode(pItem->left, dec << 1, 1 + size))
-        return 4;
-    if (encode(pItem->right, (dec << 1) + 1, 1 + size))
-        return 4;
+    encode(pItem->left, dec << 1, 1 + size);
+    encode(pItem->right, (dec << 1) + 1, 1 + size);
     return 0;
 }
 
@@ -185,10 +183,8 @@ int fillCodes(Code *codes, Item *pItem)
         return  2;
     if (pItem->left == NULL && pItem->right == NULL)
         codes[pItem->ch] = pItem->code;
-    if (fillCodes(codes, pItem->left))
-        return 3;
-    if (fillCodes(codes, pItem->right))
-        return 3;
+    fillCodes(codes, pItem->left);
+    fillCodes(codes, pItem->right);
     return 0;
 }
 
